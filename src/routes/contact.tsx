@@ -42,10 +42,10 @@ function Contact() {
       <section className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-3 lg:px-8">
         <div className="space-y-4">
           {[
-            { Icon: MapPin, t: "Address", v: "Lahnaue Ground, Marburg, Hesse" },
-            { Icon: Mail, t: "Email", v: "hello@marburgcc.de" },
-            { Icon: Phone, t: "Phone", v: "+49 6421 000 0000" },
-            { Icon: MessageCircle, t: "WhatsApp", v: "+49 151 0000 0000" },
+            { Icon: MapPin, t: "Address", v: "Bahnhofstraße 36, 35037 Marburg" },
+            { Icon: Mail, t: "Email", v: "Pakistanisinmarburg@gmail.com" },
+            { Icon: Phone, t: "Phone", v: "+49 152 16164830" },
+            { Icon: MessageCircle, t: "WhatsApp", v: "+49 152 16164830" },
           ].map(({Icon, t, v}) => (
             <Card key={t} className="flex items-start gap-4 p-5">
               <div className="rounded-xl bg-secondary/15 p-3"><Icon className="h-5 w-5 text-secondary" /></div>
