@@ -20,7 +20,7 @@ export function Navbar() {
   const [dark, setDark] = useState(false);
   const [lang, setLang] = useState<"EN" | "DE">("EN");
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { user, signOut } = useAuth();
+  const { user, isAdmin, signOut } = useAuth();
 
   useEffect(() => {
     const stored = localStorage.getItem("theme");
@@ -75,6 +75,11 @@ export function Navbar() {
               <Link to="/dashboard" className="hidden sm:inline-block">
                 <Button variant="outline" size="sm">Dashboard</Button>
               </Link>
+              {isAdmin && (
+                <Link to="/admin" className="hidden sm:inline-block">
+                  <Button size="sm" className="bg-yellow-400 text-black hover:bg-yellow-300">Admin</Button>
+                </Link>
+              )}
               <Button size="sm" onClick={() => signOut()} className="hidden sm:inline-flex">Sign out</Button>
             </>
           ) : (
@@ -99,6 +104,11 @@ export function Navbar() {
                 {n.label}
               </Link>
             ))}
+            {user && isAdmin && (
+              <Link to="/admin" className="block rounded-lg bg-yellow-400 px-3 py-2 text-sm font-semibold text-black hover:bg-yellow-300">
+                Admin
+              </Link>
+            )}
             <div className="pt-2">
               {user ? (
                 <Link to="/dashboard"><Button className="w-full">Dashboard</Button></Link>
