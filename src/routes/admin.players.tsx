@@ -40,6 +40,8 @@ function Page() {
         rows={data ?? []}
         loading={isLoading}
         searchKeys={["full_name", "email"]}
+        addLabel="Add Player"
+        addClassName="bg-secondary text-secondary-foreground hover:bg-secondary/90"
         columns={[
           { key: "full_name", header: "Name" },
           { key: "role", header: "Role" },
