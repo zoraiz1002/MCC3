@@ -7,7 +7,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const ROLES = ["batsman", "bowler", "all-rounder", "wicket-keeper"];
@@ -26,62 +25,82 @@ interface Props {
 
 export function ManageSquadDialog({ open, onOpenChange, teamId, teamName }: Props) {
   const qc = useQueryClient();
+  const refetchAll = () => {
+    qc.invalidateQueries({ queryKey: ["teams"] });
+    qc.invalidateQueries({ queryKey: ["team", teamId] });
+    qc.invalidateQueries({ queryKey: ["team_players", teamId] });
+    qc.invalidateQueries({ queryKey: ["players_all_for_team", teamId] });
+  };
 
-  // Existing team_players for this team (for exclusion).
-  const existing = useQuery({
+  // Current squad
+  const squad = useQuery({
     queryKey: ["team_players", teamId],
     enabled: open,
     queryFn: async () => {
-      const { data, error } = await supabase.from("team_players").select("player_id").eq("team_id", teamId);
-      if (error) throw error;
-      return (data ?? []).map((r: any) => r.player_id as string);
-    },
-  });
-
-  const allPlayers = useQuery({
-    queryKey: ["players_all_for_team", teamId],
-    enabled: open,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("players").select("id,full_name,role,jersey_number").order("full_name");
+      const { data, error } = await supabase
+        .from("team_players")
+        .select("player_id, players(id,full_name,role,jersey_number)")
+        .eq("team_id", teamId);
       if (error) throw error;
       return data ?? [];
     },
   });
 
-  const inTeam = new Set(existing.data ?? []);
+  // All players (for the Add list)
+  const allPlayers = useQuery({
+    queryKey: ["players_all_for_team", teamId],
+    enabled: open,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("players")
+        .select("id,full_name,role,jersey_number")
+        .order("full_name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const inTeam = useMemo(() => new Set((squad.data ?? []).map((r: any) => r.player_id)), [squad.data]);
   const [q, setQ] = useState("");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const available = useMemo(() => {
     return (allPlayers.data ?? [])
       .filter((p: any) => !inTeam.has(p.id))
       .filter((p: any) => p.full_name.toLowerCase().includes(q.toLowerCase()));
-  }, [allPlayers.data, existing.data, q]);
+  }, [allPlayers.data, inTeam, q]);
 
-  const toggle = (id: string) => {
-    setSelected((s) => {
-      const n = new Set(s);
-      if (n.has(id)) n.delete(id); else n.add(id);
-      return n;
-    });
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const addPlayer = async (playerId: string) => {
+    setBusyId(playerId);
+    try {
+      const { error } = await supabase.from("team_players").insert({ team_id: teamId, player_id: playerId });
+      if (error) throw error;
+      toast.success("Player added");
+      await Promise.all([squad.refetch(), allPlayers.refetch()]);
+      refetchAll();
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to add player");
+    } finally {
+      setBusyId(null);
+    }
   };
 
-  const [adding, setAdding] = useState(false);
-  const addSelected = async () => {
-    if (selected.size === 0) return;
-    setAdding(true);
+  const removePlayer = async (playerId: string) => {
+    setBusyId(playerId);
     try {
-      const rows = Array.from(selected).map((player_id) => ({ team_id: teamId, player_id }));
-      const { error } = await supabase.from("team_players").insert(rows);
+      const { error } = await supabase
+        .from("team_players")
+        .delete()
+        .eq("team_id", teamId)
+        .eq("player_id", playerId);
       if (error) throw error;
-      toast.success(`Added ${selected.size} player(s) to ${teamName}`);
-      setSelected(new Set());
-      qc.invalidateQueries({ queryKey: ["teams"] });
-      qc.invalidateQueries({ queryKey: ["team_players", teamId] });
-      onOpenChange(false);
+      toast.success("Player removed");
+      await Promise.all([squad.refetch(), allPlayers.refetch()]);
+      refetchAll();
     } catch (e: any) {
-      toast.error(e.message ?? "Failed to add players");
+      toast.error(e.message ?? "Failed to remove player");
     } finally {
-      setAdding(false);
+      setBusyId(null);
     }
   };
 
@@ -107,10 +126,8 @@ export function ManageSquadDialog({ open, onOpenChange, teamId, teamName }: Prop
       if (e2) throw e2;
       toast.success("Player created and added to team");
       setNf({ full_name: "", role: "", batting_style: "", bowling_style: "", phone: "", jersey_number: "" });
-      qc.invalidateQueries({ queryKey: ["teams"] });
-      qc.invalidateQueries({ queryKey: ["players"] });
-      qc.invalidateQueries({ queryKey: ["team_players", teamId] });
-      onOpenChange(false);
+      await Promise.all([squad.refetch(), allPlayers.refetch()]);
+      refetchAll();
     } catch (e: any) {
       toast.error(e.message ?? "Failed to create player");
     } finally {
@@ -122,37 +139,71 @@ export function ManageSquadDialog({ open, onOpenChange, teamId, teamName }: Prop
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Manage Squad — {teamName}</DialogTitle></DialogHeader>
-        <Tabs defaultValue="existing">
-          <TabsList className="grid grid-cols-2">
-            <TabsTrigger value="existing">Add Existing Player</TabsTrigger>
-            <TabsTrigger value="new">Create New Player</TabsTrigger>
+        <Tabs defaultValue="current">
+          <TabsList className="grid grid-cols-3">
+            <TabsTrigger value="current">Current Squad</TabsTrigger>
+            <TabsTrigger value="add">Add Players</TabsTrigger>
+            <TabsTrigger value="new">Create New</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="existing" className="space-y-3">
+          {/* Current Squad */}
+          <TabsContent value="current" className="space-y-3">
+            <div className="max-h-72 overflow-y-auto rounded-md border divide-y">
+              {squad.isLoading && <div className="p-4 text-sm text-muted-foreground">Loading…</div>}
+              {squad.error && <div className="p-4 text-sm text-destructive">Failed to load squad.</div>}
+              {!squad.isLoading && (squad.data ?? []).length === 0 && (
+                <div className="p-4 text-sm text-muted-foreground">No players in this squad yet.</div>
+              )}
+              {(squad.data ?? []).map((row: any) => row.players && (
+                <div key={row.player_id} className="flex items-center gap-3 p-2">
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">{row.players.full_name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {row.players.role || "—"}{row.players.jersey_number ? ` · #${row.players.jersey_number}` : ""}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={busyId === row.player_id}
+                    onClick={() => removePlayer(row.player_id)}
+                  >
+                    {busyId === row.player_id ? "Removing…" : "Remove"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </TabsContent>
+
+          {/* Add Players */}
+          <TabsContent value="add" className="space-y-3">
             <Input placeholder="Search players…" value={q} onChange={(e) => setQ(e.target.value)} />
             <div className="max-h-72 overflow-y-auto rounded-md border divide-y">
-              {(existing.isLoading || allPlayers.isLoading) && <div className="p-4 text-sm text-muted-foreground">Loading…</div>}
-              {(existing.error || allPlayers.error) && <div className="p-4 text-sm text-destructive">Failed to load players.</div>}
-              {!existing.isLoading && !allPlayers.isLoading && available.length === 0 && (
+              {(squad.isLoading || allPlayers.isLoading) && <div className="p-4 text-sm text-muted-foreground">Loading…</div>}
+              {(squad.error || allPlayers.error) && <div className="p-4 text-sm text-destructive">Failed to load players.</div>}
+              {!squad.isLoading && !allPlayers.isLoading && available.length === 0 && (
                 <div className="p-4 text-sm text-muted-foreground">No available players.</div>
               )}
               {available.map((p: any) => (
-                <label key={p.id} className="flex items-center gap-3 p-2 hover:bg-accent cursor-pointer">
-                  <Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggle(p.id)} />
+                <div key={p.id} className="flex items-center gap-3 p-2">
                   <div className="flex-1">
                     <div className="text-sm font-medium">{p.full_name}</div>
                     <div className="text-xs text-muted-foreground">{p.role || "—"}{p.jersey_number ? ` · #${p.jersey_number}` : ""}</div>
                   </div>
-                </label>
+                  <Button
+                    size="sm"
+                    disabled={busyId === p.id}
+                    className="bg-green-600 text-white hover:bg-green-500"
+                    onClick={() => addPlayer(p.id)}
+                  >
+                    {busyId === p.id ? "Adding…" : "Add"}
+                  </Button>
+                </div>
               ))}
-            </div>
-            <div className="flex justify-end">
-              <Button onClick={addSelected} disabled={adding || selected.size === 0} className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
-                {adding ? "Adding…" : `Add Selected (${selected.size})`}
-              </Button>
             </div>
           </TabsContent>
 
+          {/* Create New Player */}
           <TabsContent value="new" className="space-y-3">
             <div className="space-y-1.5">
               <Label>Full name *</Label>
