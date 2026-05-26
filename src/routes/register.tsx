@@ -28,15 +28,30 @@ function Register() {
 
   const onSubmit = async (v: Form) => {
     if (!isSupabaseConfigured) { toast.error("Supabase not configured."); return; }
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: v.email, password: v.password,
       options: {
         emailRedirectTo: window.location.origin,
         data: { name: v.name, phone: v.phone, role: v.role },
       },
     });
-    if (error) toast.error(error.message);
-    else { toast.success("Account created — check your email."); nav({ to: "/verify-email" }); }
+    if (error) { toast.error(error.message); return; }
+    const newUserId = data.user?.id;
+    if (newUserId) {
+      const { error: pErr } = await supabase.from("players").upsert(
+        {
+          user_id: newUserId,
+          full_name: v.name,
+          phone: v.phone || null,
+          email: v.email,
+          is_active: true,
+        },
+        { onConflict: "user_id", ignoreDuplicates: true },
+      );
+      if (pErr) console.warn("Player profile upsert failed:", pErr.message);
+    }
+    toast.success("Account created — check your email.");
+    nav({ to: "/verify-email" });
   };
 
   return (
