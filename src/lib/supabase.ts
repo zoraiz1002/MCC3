@@ -9,8 +9,8 @@ export const isSupabaseConfigured = Boolean(url && anon);
 const isBrowser = typeof window !== "undefined";
 
 export const supabase: SupabaseClient = createClient(
-  url ?? "https://placeholder.supabase.co",
-  anon ?? "placeholder",
+  url ?? "https://iuinahiweounsbpocfit.supabase.co",
+  anon ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1aW5haGl3ZW91bnNicG9jZml0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4Mjc0MDIsImV4cCI6MjA5ODQwMzQwMn0.BOrGM4t0_4SWMStEavJOisgCuS_6RDeOaOUN68_LCz8",
   {
     auth: {
       persistSession: isBrowser && isSupabaseConfigured,
