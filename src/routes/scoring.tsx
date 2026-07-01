@@ -19,6 +19,7 @@ export const Route = createFileRoute("/scoring")({
 
 type Match = any;
 type Player = { id: string; full_name: string };
+
 type Innings = {
   id: string;
   match_id: string;
@@ -31,6 +32,7 @@ type Innings = {
   balls: number;
   is_closed: boolean;
 };
+
 type Ball = {
   id: string;
   innings_id: string;
@@ -82,6 +84,7 @@ function ScoringPage() {
 
 function ScoringInner({ matchId }: { matchId: string }) {
   const qc = useQueryClient();
+
   const { data: match, isLoading } = useQuery({
     queryKey: ["scoring_match", matchId],
     queryFn: async () => {
@@ -92,6 +95,7 @@ function ScoringInner({ matchId }: { matchId: string }) {
         )
         .eq("id", matchId)
         .single();
+
       if (error) throw error;
       return data as Match;
     },
@@ -105,6 +109,7 @@ function ScoringInner({ matchId }: { matchId: string }) {
         .select("*")
         .eq("match_id", matchId)
         .order("innings_no");
+
       if (error) throw error;
       return (data ?? []) as Innings[];
     },
@@ -115,8 +120,9 @@ function ScoringInner({ matchId }: { matchId: string }) {
     qc.invalidateQueries({ queryKey: ["scoring_innings", matchId] });
   };
 
-  if (isLoading || !match)
+  if (isLoading || !match) {
     return <div className="mx-auto max-w-3xl p-10">Loading…</div>;
+  }
 
   if (match.status === "completed") {
     return <CompletedScreen match={match} innings={innings ?? []} />;
@@ -128,6 +134,7 @@ function ScoringInner({ matchId }: { matchId: string }) {
     if ((innings ?? []).length === 0) {
       return <SetupScreen match={match} inningsNo={1} onDone={refresh} />;
     }
+
     if ((innings ?? []).length === 1) {
       return (
         <InningsBreak
@@ -137,6 +144,7 @@ function ScoringInner({ matchId }: { matchId: string }) {
         />
       );
     }
+
     return (
       <CompleteForm match={match} innings={innings ?? []} onComplete={refresh} />
     );
@@ -147,7 +155,6 @@ function ScoringInner({ matchId }: { matchId: string }) {
   );
 }
 
-// =================== Setup ===================
 function SetupScreen({
   match,
   inningsNo,
@@ -160,20 +167,23 @@ function SetupScreen({
   forcedBattingTeam?: string;
 }) {
   const [tossWinner, setTossWinner] = useState<string>(
-    match.toss_winner_id ?? ""
+    match.toss_winner_id ?? match.toss_winner ?? ""
   );
+
   const [tossDecision, setTossDecision] = useState<string>(
     match.toss_decision ?? ""
   );
+
   const battingTeam =
     forcedBattingTeam ??
     (tossWinner && tossDecision
       ? tossDecision === "bat"
         ? tossWinner
         : tossWinner === match.team_a
-        ? match.team_b
-        : match.team_a
+          ? match.team_b
+          : match.team_a
       : "");
+
   const bowlingTeam = battingTeam
     ? battingTeam === match.team_a
       ? match.team_b
@@ -199,18 +209,22 @@ function SetupScreen({
 
   const start = async () => {
     setBusy(true);
+
     try {
       if (inningsNo === 1) {
         const { error: me } = await supabase
           .from("matches")
           .update({
             toss_winner_id: tossWinner,
+            toss_winner: tossWinner,
             toss_decision: tossDecision,
             status: "live",
           })
           .eq("id", match.id);
+
         if (me) throw me;
       }
+
       const { data: inn, error } = await supabase
         .from("innings")
         .insert({
@@ -221,7 +235,9 @@ function SetupScreen({
         })
         .select()
         .single();
+
       if (error) throw error;
+
       await supabase.from("batting_scorecards").insert([
         {
           match_id: match.id,
@@ -238,6 +254,7 @@ function SetupScreen({
           balls: 0,
         },
       ]);
+
       await supabase.from("bowling_scorecards").insert({
         match_id: match.id,
         player_id: bowler,
@@ -246,10 +263,12 @@ function SetupScreen({
         runs: 0,
         wickets: 0,
       });
+
       localStorage.setItem(
         `mcc.inn.${inn.id}`,
         JSON.stringify({ striker, nonStriker, bowler })
       );
+
       toast.success(inningsNo === 1 ? "Innings 1 started" : "Innings 2 started");
       onDone();
     } catch (e: any) {
@@ -265,6 +284,7 @@ function SetupScreen({
         <h1 className="font-display text-3xl">
           Match Setup · Innings {inningsNo}
         </h1>
+
         <div className="mt-2 text-sm text-muted-foreground">
           {match.a?.name} vs {match.b?.name} ·{" "}
           {match.match_date && new Date(match.match_date).toLocaleString()} ·{" "}
@@ -285,6 +305,7 @@ function SetupScreen({
                 </SelectContent>
               </Select>
             </div>
+
             <div>
               <Label>Decision</Label>
               <Select value={tossDecision} onValueChange={setTossDecision}>
@@ -310,6 +331,7 @@ function SetupScreen({
                 players={batters ?? []}
               />
             </div>
+
             <div>
               <Label>Non-striker</Label>
               <PlayerSelect
@@ -318,6 +340,7 @@ function SetupScreen({
                 players={(batters ?? []).filter((p) => p.id !== striker)}
               />
             </div>
+
             <div>
               <Label>Opening Bowler</Label>
               <PlayerSelect
@@ -383,7 +406,9 @@ function useTeamPlayers(teamId?: string) {
         .from("team_players")
         .select("players(id, full_name)")
         .eq("team_id", teamId!);
+
       if (error) throw error;
+
       return ((data ?? []) as any[])
         .map((r) => r.players)
         .filter(Boolean) as Player[];
@@ -391,7 +416,6 @@ function useTeamPlayers(teamId?: string) {
   });
 }
 
-// =================== Scoring Board ===================
 function ScoringBoard({
   match,
   innings,
@@ -407,9 +431,11 @@ function ScoringBoard({
     typeof window !== "undefined"
       ? localStorage.getItem(`mcc.inn.${innings.id}`)
       : null;
+
   const initActive = stored
     ? JSON.parse(stored)
     : { striker: "", nonStriker: "", bowler: "" };
+
   const [striker, setStriker] = useState<string>(initActive.striker);
   const [nonStriker, setNonStriker] = useState<string>(initActive.nonStriker);
   const [bowler, setBowler] = useState<string>(initActive.bowler);
@@ -418,6 +444,7 @@ function ScoringBoard({
     setStriker(s);
     setNonStriker(ns);
     setBowler(b);
+
     localStorage.setItem(
       `mcc.inn.${innings.id}`,
       JSON.stringify({ striker: s, nonStriker: ns, bowler: b })
@@ -437,6 +464,7 @@ function ScoringBoard({
           .eq("match_id", match.id)
       ).data ?? [],
   });
+
   const { data: bowlCards } = useQuery({
     queryKey: ["bowl_cards", match.id, innings.id],
     queryFn: async () =>
@@ -458,6 +486,7 @@ function ScoringBoard({
     batters?.find((p) => p.id === id)?.full_name ||
     bowlers?.find((p) => p.id === id)?.full_name ||
     "—";
+
   const battingTeamName =
     innings.batting_team_id === match.team_a
       ? match.a?.name ?? "Team A"
@@ -467,6 +496,7 @@ function ScoringBoard({
 
   const strikerCard = batCards?.find((c: any) => c.player_id === striker);
   const nonStrikerCard = batCards?.find((c: any) => c.player_id === nonStriker);
+
   const bowlerCard = bowlCards?.find(
     (c: any) =>
       c.player_id === bowler && c.team_id === innings.bowling_team_id
@@ -494,12 +524,17 @@ function ScoringBoard({
       toast.error("Set striker and bowler first");
       return;
     }
+
     setBusy(true);
+
     try {
+      const extrasType = opts.extras_type ?? "none";
+
       const isLegal =
-        !opts.extras_type ||
-        opts.extras_type === "bye" ||
-        opts.extras_type === "legbye";
+        extrasType === "none" ||
+        extrasType === "bye" ||
+        extrasType === "legbye";
+
       const totalRuns = (opts.runs ?? 0) + (opts.extras_runs ?? 0);
       const overNo = Math.floor(innings.balls / 6);
       const ballNo = (innings.balls % 6) + 1;
@@ -512,17 +547,19 @@ function ScoringBoard({
         non_striker_id: nonStriker,
         bowler_id: bowler,
         runs: opts.runs ?? 0,
-        extras_type: opts.extras_type ?? null,
+        extras_type: extrasType,
         extras_runs: opts.extras_runs ?? 0,
         is_wicket: !!opts.is_wicket,
         dismissal_type: opts.dismissal_type ?? null,
         out_player_id: opts.out_player_id ?? null,
         new_batsman_id: opts.new_batsman_id ?? null,
       });
+
       if (be) throw be;
 
       const newBalls = innings.balls + (isLegal ? 1 : 0);
       const newOvers = newBalls / 6;
+
       const { error: ie } = await supabase
         .from("innings")
         .update({
@@ -532,14 +569,17 @@ function ScoringBoard({
           overs: newOvers,
         })
         .eq("id", innings.id);
+
       if (ie) throw ie;
 
       if (strikerCard) {
         const addRuns =
-          opts.extras_type === "bye" || opts.extras_type === "legbye"
+          extrasType === "bye" || extrasType === "legbye"
             ? 0
             : opts.runs ?? 0;
+
         const addBalls = isLegal ? 1 : 0;
+
         await supabase
           .from("batting_scorecards")
           .update({
@@ -558,11 +598,13 @@ function ScoringBoard({
 
       if (bowlerCard) {
         const conceded =
-          opts.extras_type === "bye" || opts.extras_type === "legbye"
+          extrasType === "bye" || extrasType === "legbye"
             ? 0
             : totalRuns;
+
         const addLegal = isLegal ? 1 : 0;
         const newBallsForBowler = (bowlerCard.overs ?? 0) * 6 + addLegal;
+
         await supabase
           .from("bowling_scorecards")
           .update({
@@ -578,8 +620,10 @@ function ScoringBoard({
       const scoreStr = `${innings.runs + totalRuns}/${
         innings.wickets + (opts.is_wicket ? 1 : 0)
       } (${oversForDisplay(newBalls)})`;
+
       const scoreCol =
         innings.batting_team_id === match.team_a ? "score_a" : "score_b";
+
       await supabase
         .from("matches")
         .update({ [scoreCol]: scoreStr })
@@ -590,6 +634,7 @@ function ScoringBoard({
           const exists = batCards?.some(
             (c: any) => c.player_id === opts.new_batsman_id
           );
+
           if (!exists) {
             await supabase.from("batting_scorecards").insert({
               match_id: match.id,
@@ -599,16 +644,19 @@ function ScoringBoard({
               balls: 0,
             });
           }
+
           persistActive(opts.new_batsman_id, nonStriker, bowler);
         }
       } else {
-        if ((opts.runs ?? 0) % 2 === 1)
+        if ((opts.runs ?? 0) % 2 === 1) {
           persistActive(nonStriker, striker, bowler);
+        }
       }
 
       refreshAll();
 
       const finalBalls = newBalls;
+
       if (isLegal && finalBalls % 6 === 0) {
         persistActive(nonStriker, striker, "");
         setNewBowlerOpen(true);
@@ -622,6 +670,7 @@ function ScoringBoard({
 
   const undoLastBall = async () => {
     setBusy(true);
+
     try {
       const { data: last } = await supabase
         .from("balls")
@@ -630,18 +679,23 @@ function ScoringBoard({
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+
       if (!last) {
         toast.error("Nothing to undo");
         return;
       }
-      const l = last as Ball;
-      const isLegal =
-        !l.extras_type ||
-        l.extras_type === "bye" ||
-        l.extras_type === "legbye";
-      const totalRuns = (l.runs ?? 0) + (l.extras_runs ?? 0);
 
+      const l = last as Ball;
+      const extrasType = l.extras_type ?? "none";
+
+      const isLegal =
+        extrasType === "none" ||
+        extrasType === "bye" ||
+        extrasType === "legbye";
+
+      const totalRuns = (l.runs ?? 0) + (l.extras_runs ?? 0);
       const newBalls = Math.max(0, innings.balls - (isLegal ? 1 : 0));
+
       await supabase
         .from("innings")
         .update({
@@ -651,14 +705,17 @@ function ScoringBoard({
           overs: newBalls / 6,
         })
         .eq("id", innings.id);
+
       await supabase.from("balls").delete().eq("id", l.id);
 
       const card = batCards?.find((c: any) => c.player_id === l.batsman_id);
+
       if (card) {
         const addRuns =
-          l.extras_type === "bye" || l.extras_type === "legbye"
+          extrasType === "bye" || extrasType === "legbye"
             ? 0
             : l.runs ?? 0;
+
         await supabase
           .from("batting_scorecards")
           .update({
@@ -669,16 +726,20 @@ function ScoringBoard({
           })
           .eq("id", card.id);
       }
+
       const bc = bowlCards?.find((c: any) => c.player_id === l.bowler_id);
+
       if (bc) {
         const conceded =
-          l.extras_type === "bye" || l.extras_type === "legbye"
+          extrasType === "bye" || extrasType === "legbye"
             ? 0
             : totalRuns;
+
         const newBallsBowler = Math.max(
           0,
           (bc.overs ?? 0) * 6 - (isLegal ? 1 : 0)
         );
+
         await supabase
           .from("bowling_scorecards")
           .update({
@@ -697,8 +758,10 @@ function ScoringBoard({
         0,
         innings.wickets - (l.is_wicket ? 1 : 0)
       )} (${oversForDisplay(newBalls)})`;
+
       const scoreCol =
         innings.batting_team_id === match.team_a ? "score_a" : "score_b";
+
       await supabase
         .from("matches")
         .update({ [scoreCol]: scoreStr })
@@ -715,11 +778,13 @@ function ScoringBoard({
 
   const endInnings = async () => {
     setBusy(true);
+
     try {
       await supabase
         .from("innings")
         .update({ is_closed: true })
         .eq("id", innings.id);
+
       toast.success("Innings closed");
       onChange();
     } catch (e: any) {
@@ -732,43 +797,49 @@ function ScoringBoard({
 
   return (
     <section className="mx-auto max-w-3xl px-4 py-8 space-y-5">
-      {/* Scoreboard Header */}
       <Card className="p-5">
         <div className="flex items-center justify-between">
           <div className="font-display text-2xl">{battingTeamName}</div>
+
           <div className="font-display text-4xl font-bold">
             {innings.runs}/{innings.wickets}
           </div>
+
           <div className="text-sm text-muted-foreground">
             {oversDisplay} ov / {match.overs}
           </div>
         </div>
+
         <div className="mt-1 text-xs text-muted-foreground">
           Innings {innings.innings_no}
         </div>
       </Card>
 
-      {/* Batsmen + Bowler */}
       <Card className="p-5">
         <h3 className="font-semibold mb-2">Batsmen</h3>
+
         <div className="grid grid-cols-2 gap-3 text-sm">
           <Row
             label={`★ ${playerName(striker) || "Striker"}`}
             bold
             value={`${strikerCard?.runs ?? 0} (${strikerCard?.balls ?? 0})`}
           />
+
           <Row
             label={playerName(nonStriker) || "Non-striker"}
             value={`${nonStrikerCard?.runs ?? 0} (${nonStrikerCard?.balls ?? 0})`}
           />
         </div>
+
         <h3 className="mt-4 font-semibold mb-2">Bowler</h3>
+
         <div className="text-sm">
           <Row
             label={playerName(bowler) || "—"}
             value={`${(bowlerCard?.overs ?? 0).toFixed(1)}–${bowlerCard?.runs ?? 0}–${bowlerCard?.wickets ?? 0}`}
           />
         </div>
+
         {!bowler && (
           <div className="mt-3">
             <Button size="sm" onClick={() => setNewBowlerOpen(true)}>
@@ -778,16 +849,22 @@ function ScoringBoard({
         )}
       </Card>
 
-      {/* Scoring Buttons */}
       <Card className="p-5">
         <h3 className="font-semibold mb-2">Runs</h3>
+
         <div className="grid grid-cols-6 gap-2">
           {[0, 1, 2, 3, 4, 6].map((n) => (
             <Button
               key={n}
               variant={n === 4 || n === 6 ? "default" : "outline"}
               disabled={busy}
-              className={n === 4 ? "bg-blue-600 text-white" : n === 6 ? "bg-purple-600 text-white" : ""}
+              className={
+                n === 4
+                  ? "bg-blue-600 text-white"
+                  : n === 6
+                    ? "bg-purple-600 text-white"
+                    : ""
+              }
               onClick={() => recordBall({ runs: n })}
             >
               {n}
@@ -796,6 +873,7 @@ function ScoringBoard({
         </div>
 
         <h3 className="mt-4 font-semibold mb-2">Extras</h3>
+
         <div className="grid grid-cols-4 gap-2">
           <Button
             variant="outline"
@@ -806,6 +884,7 @@ function ScoringBoard({
           >
             Wide
           </Button>
+
           <Button
             variant="outline"
             disabled={busy}
@@ -815,6 +894,7 @@ function ScoringBoard({
           >
             No Ball
           </Button>
+
           <Button
             variant="outline"
             disabled={busy}
@@ -824,6 +904,7 @@ function ScoringBoard({
           >
             Bye
           </Button>
+
           <Button
             variant="outline"
             disabled={busy}
@@ -843,6 +924,7 @@ function ScoringBoard({
           >
             🔴 WICKET
           </Button>
+
           <Button variant="outline" disabled={busy} onClick={undoLastBall}>
             ↩ Undo Last Ball
           </Button>
@@ -860,7 +942,6 @@ function ScoringBoard({
         )}
       </Card>
 
-      {/* Wicket Modal */}
       <WicketDialog
         open={wicketOpen}
         onOpenChange={setWicketOpen}
@@ -874,7 +955,6 @@ function ScoringBoard({
         }}
       />
 
-      {/* New Bowler Modal */}
       <SelectBowlerDialog
         open={newBowlerOpen}
         onOpenChange={setNewBowlerOpen}
@@ -882,6 +962,7 @@ function ScoringBoard({
         excludeId={bowler}
         onPick={async (id) => {
           const exists = bowlCards?.some((c: any) => c.player_id === id);
+
           if (!exists) {
             await supabase.from("bowling_scorecards").insert({
               match_id: match.id,
@@ -892,25 +973,28 @@ function ScoringBoard({
               wickets: 0,
             });
           }
+
           persistActive(striker, nonStriker, id);
           setNewBowlerOpen(false);
           refreshAll();
         }}
       />
 
-      {/* End Innings Modal */}
       <Dialog open={endInningsOpen} onOpenChange={setEndInningsOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>End innings?</DialogTitle>
           </DialogHeader>
+
           <p className="text-sm text-muted-foreground">
             This closes innings {innings.innings_no}.
           </p>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setEndInningsOpen(false)}>
               Cancel
             </Button>
+
             <Button onClick={endInnings} disabled={busy}>
               End Innings
             </Button>
@@ -946,7 +1030,6 @@ function Row({
   );
 }
 
-// =================== Wicket Dialog ===================
 function WicketDialog({
   open,
   onOpenChange,
@@ -970,9 +1053,11 @@ function WicketDialog({
 }) {
   const [type, setType] = useState("bowled");
   const [newB, setNewB] = useState("");
+
   const usedIds = new Set(batCards.map((c) => c.player_id));
   usedIds.add(striker);
   usedIds.add(nonStriker);
+
   const remaining = batters.filter((p) => !usedIds.has(p.id));
 
   useEffect(() => {
@@ -988,13 +1073,16 @@ function WicketDialog({
         <DialogHeader>
           <DialogTitle>Wicket</DialogTitle>
         </DialogHeader>
+
         <div className="space-y-3">
           <div>
             <Label>Dismissal type</Label>
+
             <Select value={type} onValueChange={setType}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
+
               <SelectContent>
                 {[
                   ["bowled", "Bowled"],
@@ -1011,16 +1099,17 @@ function WicketDialog({
               </SelectContent>
             </Select>
           </div>
+
           <div>
             <Label>New batsman</Label>
+
             <Select value={newB} onValueChange={setNewB}>
               <SelectTrigger>
                 <SelectValue
-                  placeholder={
-                    remaining.length ? "Select" : "No players left"
-                  }
+                  placeholder={remaining.length ? "Select" : "No players left"}
                 />
               </SelectTrigger>
+
               <SelectContent>
                 {remaining.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
@@ -1031,10 +1120,12 @@ function WicketDialog({
             </Select>
           </div>
         </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
+
           <Button
             disabled={!newB && remaining.length > 0}
             onClick={() =>
@@ -1067,19 +1158,23 @@ function SelectBowlerDialog({
   onPick: (id: string) => void;
 }) {
   const [pick, setPick] = useState("");
+
   useEffect(() => {
     if (open) setPick("");
   }, [open]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Select next bowler</DialogTitle>
         </DialogHeader>
+
         <Select value={pick} onValueChange={setPick}>
           <SelectTrigger>
             <SelectValue placeholder="Bowler" />
           </SelectTrigger>
+
           <SelectContent>
             {bowlers
               .filter((p) => p.id !== excludeId)
@@ -1090,6 +1185,7 @@ function SelectBowlerDialog({
               ))}
           </SelectContent>
         </Select>
+
         <DialogFooter>
           <Button disabled={!pick} onClick={() => onPick(pick)}>
             Confirm
@@ -1100,7 +1196,6 @@ function SelectBowlerDialog({
   );
 }
 
-// =================== Innings Break ===================
 function InningsBreak({
   match,
   firstInnings,
@@ -1112,6 +1207,7 @@ function InningsBreak({
 }) {
   const battingNext =
     firstInnings.batting_team_id === match.team_a ? match.team_b : match.team_a;
+
   return (
     <SetupScreen
       match={match}
@@ -1122,7 +1218,6 @@ function InningsBreak({
   );
 }
 
-// =================== Complete Form ===================
 function CompleteForm({
   match,
   innings,
@@ -1134,30 +1229,30 @@ function CompleteForm({
 }) {
   const inn1 = innings.find((i) => i.innings_no === 1)!;
   const inn2 = innings.find((i) => i.innings_no === 2)!;
-  const teamARuns = (
-    match.team_a === inn1.batting_team_id ? inn1 : inn2
-  ).runs;
-  const teamBRuns = (
-    match.team_b === inn1.batting_team_id ? inn1 : inn2
-  ).runs;
+
+  const teamARuns = (match.team_a === inn1.batting_team_id ? inn1 : inn2).runs;
+  const teamBRuns = (match.team_b === inn1.batting_team_id ? inn1 : inn2).runs;
+
   const winnerId =
     teamARuns === teamBRuns
       ? null
       : teamARuns > teamBRuns
-      ? match.team_a
-      : match.team_b;
+        ? match.team_a
+        : match.team_b;
+
   const winnerName =
     winnerId === match.team_a
       ? match.a?.name
       : winnerId === match.team_b
-      ? match.b?.name
-      : "Tie";
+        ? match.b?.name
+        : "Tie";
+
   const margin =
     teamARuns === teamBRuns
       ? "Match tied"
       : winnerId === inn2.batting_team_id
-      ? `${winnerName} won by ${10 - inn2.wickets} wickets`
-      : `${winnerName} won by ${Math.abs(teamARuns - teamBRuns)} runs`;
+        ? `${winnerName} won by ${10 - inn2.wickets} wickets`
+        : `${winnerName} won by ${Math.abs(teamARuns - teamBRuns)} runs`;
 
   const { data: allPlayers } = useQuery({
     queryKey: ["all_players_simple"],
@@ -1169,11 +1264,13 @@ function CompleteForm({
           .order("full_name")
       ).data ?? [],
   });
+
   const [motm, setMotm] = useState("");
   const [busy, setBusy] = useState(false);
 
   const complete = async () => {
     setBusy(true);
+
     try {
       const { error } = await supabase
         .from("matches")
@@ -1182,9 +1279,12 @@ function CompleteForm({
           winner_id: winnerId,
           result_description: margin,
           man_of_match_id: motm || null,
+          motm_player_id: motm || null,
         })
         .eq("id", match.id);
+
       if (error) throw error;
+
       toast.success("Match completed");
       onComplete();
     } catch (e: any) {
@@ -1198,16 +1298,21 @@ function CompleteForm({
     <section className="mx-auto max-w-2xl px-4 py-10">
       <Card className="p-6 text-center">
         <h1 className="font-display text-3xl">Match Complete</h1>
+
         <p className="mt-2 text-lg font-semibold">{margin}</p>
+
         <div className="mt-4 text-sm text-muted-foreground">
           {match.a?.name}: {teamARuns} · {match.b?.name}: {teamBRuns}
         </div>
+
         <div className="mt-6 text-left">
           <Label>Man of the Match</Label>
+
           <Select value={motm} onValueChange={setMotm}>
             <SelectTrigger>
               <SelectValue placeholder="Select player" />
             </SelectTrigger>
+
             <SelectContent>
               {(allPlayers ?? []).map((p: any) => (
                 <SelectItem key={p.id} value={p.id}>
@@ -1217,6 +1322,7 @@ function CompleteForm({
             </SelectContent>
           </Select>
         </div>
+
         <Button
           className="mt-6 bg-green-600 text-white hover:bg-green-500"
           disabled={busy}
@@ -1229,7 +1335,6 @@ function CompleteForm({
   );
 }
 
-// =================== Completed Screen ===================
 function CompletedScreen({
   match,
   innings,
@@ -1241,11 +1346,14 @@ function CompletedScreen({
     <section className="mx-auto max-w-2xl px-4 py-10">
       <Card className="p-6 text-center">
         <h1 className="font-display text-3xl">Match Completed</h1>
+
         <p className="mt-2 text-lg font-semibold">{match.result_description}</p>
+
         <div className="mt-4 text-sm text-muted-foreground">
           {match.a?.name}: {match.score_a || "—"} · {match.b?.name}:{" "}
           {match.score_b || "—"}
         </div>
+
         <div className="mt-2 text-xs text-muted-foreground">
           {innings.length} innings recorded
         </div>
