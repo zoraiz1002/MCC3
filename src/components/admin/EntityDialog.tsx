@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+const EMPTY_SELECT_VALUE = "__none__";
+
 export type Field = {
   name: string;
   label: string;
@@ -153,7 +155,7 @@ export function EntityDialog({
           v = await uploadFile(f, files[f.name]!);
         }
 
-        if (v === "" || v === undefined) v = null;
+        if (v === "" || v === undefined || v === EMPTY_SELECT_VALUE) v = null;
         if (f.type === "number" && v !== null) v = Number(v);
 
         out[f.name] = v;
@@ -174,99 +176,126 @@ export function EntityDialog({
         </DialogHeader>
 
         <form onSubmit={submit} className="space-y-3">
-          {fields.map((f) => (
-            <div key={f.name} className="space-y-1.5">
-              <Label htmlFor={f.name}>
-                {f.label}
-                {f.required && <span className="text-destructive"> *</span>}
-              </Label>
+          {fields.map((f) => {
+            const selectValue =
+              f.type === "select" && (values[f.name] === "" || values[f.name] === null || values[f.name] === undefined)
+                ? EMPTY_SELECT_VALUE
+                : values[f.name] ?? "";
 
-              {f.type === "textarea" ? (
-                <Textarea
-                  id={f.name}
-                  value={values[f.name] ?? ""}
-                  onChange={(e) => set(f.name, e.target.value)}
-                  required={f.required}
-                  placeholder={f.placeholder}
-                />
-              ) : f.type === "select" ? (
-                <Select value={values[f.name] ?? ""} onValueChange={(v) => set(f.name, v)}>
-                  <SelectTrigger id={f.name}>
-                    <SelectValue placeholder={f.placeholder ?? "Select…"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {f.options?.map((o) => (
-                      <SelectItem key={o.value} value={o.value}>
-                        {o.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : f.type === "boolean" ? (
-                <input
-                  id={f.name}
-                  type="checkbox"
-                  checked={!!values[f.name]}
-                  onChange={(e) => set(f.name, e.target.checked)}
-                  className="h-4 w-4"
-                />
-              ) : f.type === "file" ? (
-                <div
-                  className="rounded-lg border border-dashed p-4 text-center"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    chooseFile(f.name, e.dataTransfer.files?.[0]);
-                  }}
-                >
-                  {previews[f.name] ? (
-                    <div className="space-y-3">
-                      <img
-                        src={previews[f.name]}
-                        alt={f.label}
-                        className="mx-auto h-24 w-24 rounded object-cover border"
-                      />
-                      <div className="flex justify-center gap-2">
-                        <Label className="cursor-pointer rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground">
-                          Replace
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => chooseFile(f.name, e.target.files?.[0])}
-                          />
-                        </Label>
-                        <Button type="button" variant="destructive" size="sm" onClick={() => removeFile(f.name)}>
-                          Delete
-                        </Button>
+            return (
+              <div key={f.name} className="space-y-1.5">
+                <Label htmlFor={f.name}>
+                  {f.label}
+                  {f.required && <span className="text-destructive"> *</span>}
+                </Label>
+
+                {f.type === "textarea" ? (
+                  <Textarea
+                    id={f.name}
+                    value={values[f.name] ?? ""}
+                    onChange={(e) => set(f.name, e.target.value)}
+                    required={f.required}
+                    placeholder={f.placeholder}
+                  />
+                ) : f.type === "select" ? (
+                  <Select
+                    value={selectValue}
+                    onValueChange={(v) => set(f.name, v === EMPTY_SELECT_VALUE ? "" : v)}
+                  >
+                    <SelectTrigger id={f.name}>
+                      <SelectValue placeholder={f.placeholder ?? "Select…"} />
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      {!f.required && (
+                        <SelectItem value={EMPTY_SELECT_VALUE}>
+                          — None —
+                        </SelectItem>
+                      )}
+
+                      {f.options
+                        ?.filter((o) => o.value !== "")
+                        .map((o) => (
+                          <SelectItem key={o.value} value={o.value}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                ) : f.type === "boolean" ? (
+                  <input
+                    id={f.name}
+                    type="checkbox"
+                    checked={!!values[f.name]}
+                    onChange={(e) => set(f.name, e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                ) : f.type === "file" ? (
+                  <div
+                    className="rounded-lg border border-dashed p-4 text-center"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      chooseFile(f.name, e.dataTransfer.files?.[0]);
+                    }}
+                  >
+                    {previews[f.name] ? (
+                      <div className="space-y-3">
+                        <img
+                          src={previews[f.name]}
+                          alt={f.label}
+                          className="mx-auto h-24 w-24 rounded object-cover border"
+                        />
+
+                        <div className="flex justify-center gap-2">
+                          <Label className="cursor-pointer rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground">
+                            Replace
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => chooseFile(f.name, e.target.files?.[0])}
+                            />
+                          </Label>
+
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => removeFile(f.name)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <Label className="cursor-pointer block">
-                      <div className="text-sm text-muted-foreground">
-                        Drag & drop image here, or click to upload
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => chooseFile(f.name, e.target.files?.[0])}
-                      />
-                    </Label>
-                  )}
-                </div>
-              ) : (
-                <Input
-                  id={f.name}
-                  type={f.type ?? "text"}
-                  value={values[f.name] ?? ""}
-                  onChange={(e) => set(f.name, e.target.value)}
-                  required={f.required}
-                  placeholder={f.placeholder}
-                />
-              )}
-            </div>
-          ))}
+                    ) : (
+                      <Label className="cursor-pointer block">
+                        <div className="text-sm text-muted-foreground">
+                          Drag & drop image here, or click to upload
+                        </div>
+
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => chooseFile(f.name, e.target.files?.[0])}
+                        />
+                      </Label>
+                    )}
+                  </div>
+                ) : (
+                  <Input
+                    id={f.name}
+                    type={f.type ?? "text"}
+                    value={values[f.name] ?? ""}
+                    onChange={(e) => set(f.name, e.target.value)}
+                    required={f.required}
+                    placeholder={f.placeholder}
+                  />
+                )}
+              </div>
+            );
+          })}
 
           {extra}
 
