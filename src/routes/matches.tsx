@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,10 +10,26 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useMatches, useTeams, useTournaments } from "@/hooks/use-data";
-import { CardGridSkeleton, EmptyState, ErrorState } from "@/components/site/Loading";
+import {
+  CardGridSkeleton,
+  EmptyState,
+  ErrorState,
+} from "@/components/site/Loading";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 
@@ -41,7 +57,10 @@ function Matches() {
       <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         {canManage && (
           <div className="mb-6 flex justify-end">
-            <Button onClick={() => setOpen(true)} className="bg-yellow-400 text-black hover:bg-yellow-300">
+            <Button
+              onClick={() => setOpen(true)}
+              className="bg-yellow-400 text-black hover:bg-yellow-300"
+            >
               + Create Match
             </Button>
           </div>
@@ -49,30 +68,45 @@ function Matches() {
 
         {isLoading && <CardGridSkeleton count={4} />}
         {error && <ErrorState error={error} />}
-        {!isLoading && !error && (data ?? []).length === 0 && <EmptyState title="No matches yet" />}
+        {!isLoading && !error && (data ?? []).length === 0 && (
+          <EmptyState title="No matches yet" />
+        )}
 
         {!isLoading && !error && (data ?? []).length > 0 && (
           <div className="grid gap-5 md:grid-cols-2">
             {(data ?? []).map((m: any) => {
-              const canScore = canManage && (m.status === "upcoming" || m.status === "live");
+              const canScore =
+                canManage && (m.status === "upcoming" || m.status === "live");
 
               return (
-                <Card key={m.id} className="p-6 transition-all hover:border-secondary">
+                <Card
+                  key={m.id}
+                  className="p-6 transition-all hover:border-secondary"
+                >
                   <div className="flex items-center justify-between">
-                    <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${badgeCls(m.status)}`}>
+                    <span
+                      className={`rounded-md px-2 py-0.5 text-xs font-bold ${badgeCls(
+                        m.status
+                      )}`}
+                    >
                       {m.status === "live" && "🔴 "}
                       {(m.status ?? "").toUpperCase()}
                     </span>
 
                     <span className="text-xs text-muted-foreground">
-                      {m.match_date && new Date(m.match_date).toLocaleString()}
+                      {m.match_date &&
+                        new Date(m.match_date).toLocaleString()}
                     </span>
                   </div>
 
                   <div className="mt-4 flex items-center justify-between gap-2">
-                    <div className="font-display text-xl">{m.a?.name || m.a?.short_name || "Team A"}</div>
+                    <div className="font-display text-xl">
+                      {m.a?.name || m.a?.short_name || "Team A"}
+                    </div>
                     <div className="text-muted-foreground">vs</div>
-                    <div className="font-display text-xl">{m.b?.name || m.b?.short_name || "Team B"}</div>
+                    <div className="font-display text-xl">
+                      {m.b?.name || m.b?.short_name || "Team B"}
+                    </div>
                   </div>
 
                   {(m.score_a || m.score_b) && (
@@ -82,24 +116,38 @@ function Matches() {
                   )}
 
                   <div className="mt-3 flex items-center justify-between gap-2">
-                    <span className="text-xs text-muted-foreground">📍 {m.venue || "TBD"}</span>
+                    <span className="text-xs text-muted-foreground">
+                      📍 {m.venue || "TBD"}
+                    </span>
 
                     <div className="flex gap-2">
                       {canScore && (
                         <Button
                           size="sm"
                           className="bg-green-600 text-white hover:bg-green-500"
-                          onClick={() => navigate({ to: "/scoring", search: { matchId: m.id } })}
+                          onClick={() =>
+                            navigate({
+                              to: "/scoring",
+                              search: { matchId: m.id },
+                            })
+                          }
                         >
                           Score
                         </Button>
                       )}
 
-                      <Link to="/matches/$id" params={{ id: m.id }}>
-                        <Button size="sm" variant="outline">
-                          Details
-                        </Button>
-                      </Link>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          navigate({
+                            to: "/matches/$id",
+                            params: { id: m.id },
+                          })
+                        }
+                      >
+                        Details
+                      </Button>
                     </div>
                   </div>
                 </Card>
@@ -132,7 +180,13 @@ const createSchema = z
 
 type CreateForm = z.infer<typeof createSchema>;
 
-function CreateMatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+function CreateMatchDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}) {
   const { data: teams } = useTeams();
   const { data: tournaments } = useTournaments();
   const qc = useQueryClient();
@@ -196,7 +250,10 @@ function CreateMatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange
         <form onSubmit={submit} className="space-y-3">
           <div>
             <Label>Tournament (optional)</Label>
-            <Select value={form.watch("tournament_id") || ""} onValueChange={(v) => form.setValue("tournament_id", v)}>
+            <Select
+              value={form.watch("tournament_id") || ""}
+              onValueChange={(v) => form.setValue("tournament_id", v)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="— None —" />
               </SelectTrigger>
@@ -214,7 +271,12 @@ function CreateMatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Team A *</Label>
-              <Select value={form.watch("team_a")} onValueChange={(v) => form.setValue("team_a", v, { shouldValidate: true })}>
+              <Select
+                value={form.watch("team_a")}
+                onValueChange={(v) =>
+                  form.setValue("team_a", v, { shouldValidate: true })
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
@@ -229,13 +291,20 @@ function CreateMatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange
               </Select>
 
               {form.formState.errors.team_a && (
-                <p className="mt-1 text-xs text-destructive">{form.formState.errors.team_a.message}</p>
+                <p className="mt-1 text-xs text-destructive">
+                  {form.formState.errors.team_a.message}
+                </p>
               )}
             </div>
 
             <div>
               <Label>Team B *</Label>
-              <Select value={form.watch("team_b")} onValueChange={(v) => form.setValue("team_b", v, { shouldValidate: true })}>
+              <Select
+                value={form.watch("team_b")}
+                onValueChange={(v) =>
+                  form.setValue("team_b", v, { shouldValidate: true })
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
@@ -252,7 +321,9 @@ function CreateMatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange
               </Select>
 
               {form.formState.errors.team_b && (
-                <p className="mt-1 text-xs text-destructive">{form.formState.errors.team_b.message}</p>
+                <p className="mt-1 text-xs text-destructive">
+                  {form.formState.errors.team_b.message}
+                </p>
               )}
             </div>
           </div>
@@ -282,7 +353,10 @@ function CreateMatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange
 
             <div>
               <Label>Match Type</Label>
-              <Select value={form.watch("match_type")} onValueChange={(v) => form.setValue("match_type", v as any)}>
+              <Select
+                value={form.watch("match_type")}
+                onValueChange={(v) => form.setValue("match_type", v as any)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -299,11 +373,19 @@ function CreateMatchDialog({ open, onOpenChange }: { open: boolean; onOpenChange
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
 
-            <Button type="submit" disabled={form.formState.isSubmitting} className="bg-yellow-400 text-black hover:bg-yellow-300">
+            <Button
+              type="submit"
+              disabled={form.formState.isSubmitting}
+              className="bg-yellow-400 text-black hover:bg-yellow-300"
+            >
               {form.formState.isSubmitting ? "Saving…" : "Create Match"}
             </Button>
           </DialogFooter>
