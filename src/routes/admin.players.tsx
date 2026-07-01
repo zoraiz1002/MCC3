@@ -33,7 +33,7 @@ const fields: Field[] = [
   },
   { name: "bowling_style", label: "Bowling style", placeholder: "e.g. RF, RM, LO" },
   { name: "jersey_number", label: "Jersey #", type: "number" },
-  { name: "photo_url", label: "Upload Photo", type: "file", bucket: "player-photos" },
+  { name: "photo_url", label: "Player Photo", type: "file", bucket: "player-photos" },
   { name: "bio", label: "Bio", type: "textarea" },
   { name: "is_active", label: "Active", type: "boolean" },
 ];
@@ -52,8 +52,17 @@ function Page() {
         loading={isLoading}
         searchKeys={["full_name", "email"]}
         addLabel="Add Player"
-        addClassName="bg-secondary text-secondary-foreground hover:bg-secondary/90"
         columns={[
+          {
+            key: "photo_url",
+            header: "Photo",
+            render: (r) =>
+              r.photo_url ? (
+                <img src={r.photo_url} alt={r.full_name} className="h-10 w-10 rounded-full object-cover border" />
+              ) : (
+                "-"
+              ),
+          },
           { key: "full_name", header: "Name" },
           { key: "role", header: "Role" },
           { key: "jersey_number", header: "#" },

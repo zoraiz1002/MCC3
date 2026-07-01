@@ -15,7 +15,7 @@ const fields: Field[] = [
   { name: "category", label: "Category", placeholder: "e.g. Senior, U19, Women" },
   { name: "home_ground", label: "Home ground" },
   { name: "founded_year", label: "Founded", type: "number" },
-  { name: "badge_url", label: "Upload Badge", type: "file", bucket: "team-badges" },
+  { name: "badge_url", label: "Team Badge", type: "file", bucket: "team-badges" },
   { name: "description", label: "Description", type: "textarea" },
   { name: "is_active", label: "Active", type: "boolean" },
 ];
@@ -35,6 +35,16 @@ function Page() {
         loading={isLoading}
         searchKeys={["name", "category"]}
         columns={[
+          {
+            key: "badge_url",
+            header: "Badge",
+            render: (r) =>
+              r.badge_url ? (
+                <img src={r.badge_url} alt={r.name} className="h-10 w-10 rounded object-cover border" />
+              ) : (
+                "-"
+              ),
+          },
           { key: "name", header: "Name" },
           { key: "short_name", header: "Short" },
           { key: "category", header: "Category" },
