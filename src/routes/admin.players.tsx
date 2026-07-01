@@ -11,18 +11,29 @@ const fields: Field[] = [
   { name: "email", label: "Email" },
   { name: "phone", label: "Phone" },
   { name: "dob", label: "Date of birth", type: "date" },
-  { name: "role", label: "Role", type: "select", options: [
-    { value: "batsman", label: "Batsman" },
-    { value: "bowler", label: "Bowler" },
-    { value: "all-rounder", label: "All-rounder" },
-    { value: "wicket-keeper", label: "Wicket-keeper" },
-  ]},
-  { name: "batting_style", label: "Batting style", type: "select", options: [
-    { value: "RHB", label: "Right-handed" }, { value: "LHB", label: "Left-handed" },
-  ]},
+  {
+    name: "role",
+    label: "Role",
+    type: "select",
+    options: [
+      { value: "batsman", label: "Batsman" },
+      { value: "bowler", label: "Bowler" },
+      { value: "all-rounder", label: "All-rounder" },
+      { value: "wicket-keeper", label: "Wicket-keeper" },
+    ],
+  },
+  {
+    name: "batting_style",
+    label: "Batting style",
+    type: "select",
+    options: [
+      { value: "RHB", label: "Right-handed" },
+      { value: "LHB", label: "Left-handed" },
+    ],
+  },
   { name: "bowling_style", label: "Bowling style", placeholder: "e.g. RF, RM, LO" },
   { name: "jersey_number", label: "Jersey #", type: "number" },
-  { name: "photo_url", label: "Photo URL" },
+  { name: "photo_url", label: "Upload Photo", type: "file", bucket: "player-photos" },
   { name: "bio", label: "Bio", type: "textarea" },
   { name: "is_active", label: "Active", type: "boolean" },
 ];
@@ -48,18 +59,34 @@ function Page() {
           { key: "jersey_number", header: "#" },
           { key: "batting_style", header: "Bat" },
           { key: "bowling_style", header: "Bowl" },
-          { key: "is_active", header: "Active", render: (r) => r.is_active ? "Yes" : "No" },
+          {
+            key: "is_active",
+            header: "Active",
+            render: (r) => (r.is_active ? "Yes" : "No"),
+          },
         ]}
-        onAdd={() => { setEditing(null); setOpen(true); }}
-        onEdit={(r) => { setEditing(r); setOpen(true); }}
+        onAdd={() => {
+          setEditing(null);
+          setOpen(true);
+        }}
+        onEdit={(r) => {
+          setEditing(r);
+          setOpen(true);
+        }}
         onDelete={(r) => remove.mutate(r.id)}
       />
+
       <EntityDialog
-        open={open} onOpenChange={setOpen}
+        open={open}
+        onOpenChange={setOpen}
         title={editing ? "Edit player" : "Add player"}
         fields={fields}
         initial={editing}
-        onSubmit={(v) => editing ? update.mutateAsync({ id: editing.id, patch: v }) : create.mutateAsync(v)}
+        onSubmit={(v) =>
+          editing
+            ? update.mutateAsync({ id: editing.id, patch: v })
+            : create.mutateAsync(v)
+        }
       />
     </>
   );
