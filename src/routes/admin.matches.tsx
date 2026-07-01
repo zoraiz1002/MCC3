@@ -22,31 +22,34 @@ function Page() {
   });
 
   const { create, update, remove } = useCrud("matches");
-
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
 
   const teamOptions = useMemo(
     () =>
-      (teams ?? []).map((t: any) => ({
-        value: t.id,
-        label: t.name,
-      })),
+      (teams ?? [])
+        .filter((t: any) => Boolean(t.id))
+        .map((t: any) => ({
+          value: t.id,
+          label: t.name,
+        })),
     [teams]
   );
 
   const tournamentOptions = useMemo(
     () =>
-      (tournaments ?? []).map((t: any) => ({
-        value: t.id,
-        label: t.name,
-      })),
+      (tournaments ?? [])
+        .filter((t: any) => Boolean(t.id))
+        .map((t: any) => ({
+          value: t.id,
+          label: t.name,
+        })),
     [tournaments]
   );
 
   const teamName = (id: string) => {
-    const t = teams?.find((x: any) => x.id === id);
-    return t?.short_name || t?.name || "—";
+    const team = teams?.find((t: any) => t.id === id);
+    return team?.short_name || team?.name || "—";
   };
 
   const fields: Field[] = [
@@ -60,15 +63,15 @@ function Page() {
       name: "team_a",
       label: "Team A",
       type: "select",
-      required: true,
       options: teamOptions,
+      required: true,
     },
     {
       name: "team_b",
       label: "Team B",
       type: "select",
-      required: true,
       options: teamOptions,
+      required: true,
     },
     {
       name: "match_date",
@@ -123,7 +126,7 @@ function Page() {
     },
     {
       name: "result_description",
-      label: "Result",
+      label: "Result description",
     },
   ];
 
@@ -139,9 +142,7 @@ function Page() {
             key: "match_date",
             header: "Date",
             render: (r) =>
-              r.match_date
-                ? new Date(r.match_date).toLocaleString()
-                : "—",
+              r.match_date ? new Date(r.match_date).toLocaleString() : "—",
           },
           {
             key: "team_a",
@@ -185,10 +186,7 @@ function Page() {
           }
 
           return editing
-            ? update.mutateAsync({
-                id: editing.id,
-                patch: v,
-              })
+            ? update.mutateAsync({ id: editing.id, patch: v })
             : create.mutateAsync(v);
         }}
       />
